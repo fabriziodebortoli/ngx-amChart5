@@ -1,0 +1,36 @@
+{
+  "id": "9d4fda12-c4d3-44d5-9bd8-2cd026e2d2a5",
+  "team": {
+    "id": "0a6b2fb6-3f8c-427c-9fc1-e6fc66a6b7d6",
+    "description": "Internazionale F.C.",
+    "name": "internazionale-fc"
+  },
+  "name": "Training PROVA",
+  "startedAt": "2023-09-07T14:00:00Z",
+  "stoppedAt": "2023-09-07T16:00:00Z",
+  "status": "Stopped",
+  "duration": 7200,
+  "sessions": [
+    {
+      "name": "Session_1",
+      "id": "fake-session-id",
+      "startedAt": "2023-09-07T14:05:00Z",
+      "stoppedAt": "2023-09-07T14:10:00Z",
+      "duration": 300
+    },
+    {
+      "name": "Session_2",
+      "id": "fake-session-id",
+      "startedAt": "2023-09-07T14:35:00Z",
+      "stoppedAt": "2023-09-07T14:50:00Z",
+      "duration": 9000
+    },
+    {
+      "name": "Session_3",
+      "id": "fake-session-id",
+      "startedAt": "2023-09-07T15:00:00Z",
+      "stoppedAt": "2023-09-07T15:50:00Z",
+      "duration": 3000
+    }
+  ]
+}
