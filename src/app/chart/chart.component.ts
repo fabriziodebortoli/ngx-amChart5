@@ -1,4 +1,5 @@
 import * as am5 from '@amcharts/amcharts5';
+import { HttpClient } from '@angular/common/http';
 
 import * as am5xy from '@amcharts/amcharts5/xy';
 import { Component } from '@angular/core';
@@ -17,7 +18,8 @@ export class ChartComponent {
 
   constructor(
     private chartUtils: ChartUtilsService,
-    private chartService: AmChartService
+    private chartService: AmChartService,
+    private http: HttpClient
   ) {}
 
   ngAfterViewInit() {
@@ -36,6 +38,20 @@ export class ChartComponent {
 
       this.addSeries();
     });
+  }
+
+  downloadJson() {
+    var sJson = JSON.stringify(this.chartUtils.generateDatas());
+    var element = document.createElement('a');
+    element.setAttribute(
+      'href',
+      'data:text/json;charset=UTF-8,' + encodeURIComponent(sJson)
+    );
+    element.setAttribute('download', 'data.json');
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click(); // simulate click
+    document.body.removeChild(element);
   }
 
   private root!: am5.Root;
@@ -302,10 +318,12 @@ export class ChartComponent {
   }
 
   addSeries() {
-    // Set data
-    let data = this.chartUtils.generateDatas();
-    console.log('data', data);
-    this.chartService.setData(data);
+    this.http.get('assets/data.json').subscribe((data: any) => {
+      this.chartService.setData(data);
+    });
+    // let data = this.chartUtils.generateDatas();
+    // console.log('data', data);
+    // this.chartService.setData(data);
   }
 
   ngOnDestroy() {

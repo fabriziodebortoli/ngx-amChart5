@@ -36,7 +36,7 @@ export class ChartUtilsService {
     };
   }
 
-  generateDatas(count: any = 300) {
+  generateDatas(count: any = 600) {
     let data = [];
     for (var i = 0; i < count; ++i) {
       data.push(this.generateData());
