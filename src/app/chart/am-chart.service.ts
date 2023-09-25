@@ -240,12 +240,12 @@ export class AmChartService {
   }
 
   training!: Training;
-  setTrainingData(Training: Training) {
+  setTrainingData(Training: Training, showButtons: boolean = true) {
     this.training = Training;
     const sessions = Training.sessions;
 
     sessions?.forEach((session) => {
-      this.addSession(session.startedAt, session.stoppedAt);
+      this.addSession(session.startedAt, session.stoppedAt, showButtons);
     });
 
     this.maxNextRangePosition = this.chart.plotContainer.width();
@@ -256,7 +256,7 @@ export class AmChartService {
   maxPrevRangePosition = 0;
 
   sessionColor = am5.color(0x00ff00);
-  addSession(from: Date, to: Date) {
+  addSession(from: Date, to: Date, showButtons: boolean = true) {
     const fromTime = new Date(from).getTime();
     const toTime = new Date(to).getTime();
 
@@ -294,13 +294,14 @@ export class AmChartService {
       return 0;
     });
 
-    this.manageResizeButtons(rangeFrom, rangeTo);
+    this.manageResizeButtons(rangeFrom, rangeTo, showButtons);
   }
 
   // Crea e gestisce i resize buttons
   manageResizeButtons(
     rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
-    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>
+    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>,
+    showButtons: boolean = true
   ) {
     let resizeButtonFrom!: am5.Button;
     let resizeButtonTo!: am5.Button;
@@ -319,8 +320,8 @@ export class AmChartService {
       }),
     });
 
-    this.createFromButton(resizeButtonFrom, rangeFrom);
-    this.createToButton(resizeButtonTo, rangeFrom, rangeTo);
+    this.createFromButton(resizeButtonFrom, rangeFrom, showButtons);
+    this.createToButton(resizeButtonTo, rangeFrom, rangeTo, showButtons);
 
     this.limitRangeSelection(
       resizeButtonFrom,
@@ -423,7 +424,8 @@ export class AmChartService {
 
   createFromButton(
     resizeButtonFrom: am5.Button,
-    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>
+    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
+    showButton: boolean = true
   ) {
     // restrict from being dragged vertically
     resizeButtonFrom.adapters.add('y', function () {
@@ -453,14 +455,16 @@ export class AmChartService {
       );
     });
 
-    // set bullet for the range
-    rangeFrom.set(
-      'bullet',
-      am5xy.AxisBullet.new(this.root, {
-        location: 0,
-        sprite: resizeButtonFrom,
-      })
-    );
+    if (showButton) {
+      // set bullet for the range
+      rangeFrom.set(
+        'bullet',
+        am5xy.AxisBullet.new(this.root, {
+          location: 0,
+          sprite: resizeButtonFrom,
+        })
+      );
+    }
   }
 
   resetLimits() {
@@ -473,7 +477,8 @@ export class AmChartService {
   createToButton(
     resizeButtonTo: am5.Button,
     rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
-    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>
+    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>,
+    showButton: boolean = true
   ) {
     // restrict from being dragged vertically
     resizeButtonTo.adapters.add('y', function () {
@@ -505,12 +510,32 @@ export class AmChartService {
       );
     });
 
-    // set bullet for the range
-    rangeTo.set(
-      'bullet',
-      am5xy.AxisBullet.new(this.root, {
-        sprite: resizeButtonTo,
-      })
-    );
+    if (showButton) {
+      // set bullet for the range
+      rangeTo.set(
+        'bullet',
+        am5xy.AxisBullet.new(this.root, {
+          sprite: resizeButtonTo,
+        })
+      );
+    }
+  }
+
+  clearRanges() {
+    this.xAxis.axisRanges.clear();
+  }
+
+  drawRanges() {
+    console.log('drawRanges');
+  }
+
+  setEditMode() {
+    this.clearRanges();
+    this.setTrainingData(this.training, true);
+  }
+
+  setReadonlyMode() {
+    this.clearRanges();
+    this.setTrainingData(this.training, false);
   }
 }

@@ -53,7 +53,24 @@ export class AppComponent {
     document.body.removeChild(element);
   }
 
-  getAllRanges(){
-    this.chartService.getAllRanges();
+  getAllRanges() {
+    const ranges = this.chartService.getAllRanges();
+    console.log('ranges', ranges);
+  }
+
+  clearRanges() {
+    this.chartService.clearRanges();
+  }
+
+  drawRanges() {
+    this.chartService.drawRanges();
+  }
+
+  setReadonlyMode() {
+    this.chartService.setReadonlyMode();
+  }
+
+  setEditMode() {
+    this.chartService.setEditMode();
   }
 }
