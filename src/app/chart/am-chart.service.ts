@@ -25,16 +25,16 @@ export class AmChartService {
 
     this.chart = this.root.container.children.push(
       am5xy.XYChart.new(this.root, {
-        panX: true,
+        panX: false,
         panY: false,
-        wheelX: 'panX',
-        wheelY: 'zoomX',
-        pinchZoomX: true,
+        // wheelX: 'panX',
+        // wheelY: 'zoomX',
+        pinchZoomX: false,
       })
     );
 
     this.createAxes();
-    this.addScrollbar();
+    // this.addScrollbar();
 
     this.addSeries();
 
@@ -239,38 +239,43 @@ export class AmChartService {
     this.cursor.lineY.set('visible', false);
   }
 
-  setTrainingData(data: Training) {
-    const sessions = data.sessions;
+  training!: Training;
+  setTrainingData(Training: Training) {
+    this.training = Training;
+    const sessions = Training.sessions;
 
     sessions?.forEach((session) => {
       this.addSession(session.startedAt, session.stoppedAt);
     });
   }
 
-  addSession(from: Date, to: Date) {
-    var rangeFrom1 = new Date(from).getTime();
-    var rangeTo1 = new Date(to).getTime();
-    this.drawSession(rangeFrom1, rangeTo1);
-  }
-
   sessionColor = am5.color(0x00ff00);
-  drawSession(from: number, to: number) {
+  addSession(from: Date, to: Date) {
+    const fromTime = new Date(from).getTime();
+    const toTime = new Date(to).getTime();
+
+    // Linee range sessione
     let rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>;
     rangeFrom = this.xAxis.createAxisRange(this.xAxis.makeDataItem({}));
-    rangeFrom.set('value', from);
-    rangeFrom.set('endValue', to);
+    rangeFrom.set('value', fromTime);
+    rangeFrom.set('endValue', toTime);
+    rangeFrom.set('affectsMinMax', true);
     rangeFrom.get('grid')?.setAll({
       strokeOpacity: 1,
       stroke: this.sessionColor,
     });
 
-    let rangeTo = this.xAxis.createAxisRange(this.xAxis.makeDataItem({}));
-    rangeTo.set('value', to);
+    // Range linea finale sessione (per allineare resize button)
+    let rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>;
+    rangeTo = this.xAxis.createAxisRange(this.xAxis.makeDataItem({}));
+    rangeTo.set('value', toTime);
+    rangeTo.set('affectsMinMax', true);
     rangeTo.get('grid')?.setAll({
       strokeOpacity: 1,
       stroke: this.sessionColor,
     });
 
+    // Riempimento colore sessione
     var axisFill = rangeFrom.get('axisFill');
     axisFill?.setAll({
       fillOpacity: 0.15,
@@ -283,17 +288,17 @@ export class AmChartService {
       return 0;
     });
 
+    this.manageResizeButtons(rangeFrom, rangeTo);
+  }
+
+  // Crea e gestisce i resize buttons
+  manageResizeButtons(
+    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
+    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>
+  ) {
     let resizeButtonFrom!: am5.Button;
     let resizeButtonTo!: am5.Button;
 
-    this.createFromButton(resizeButtonFrom, rangeFrom);
-    this.createToButton(resizeButtonTo, rangeFrom, rangeTo);
-  }
-
-  createFromButton(
-    resizeButtonFrom: am5.Button,
-    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>
-  ) {
     resizeButtonFrom = am5.Button.new(this.root, {
       themeTags: ['resize', 'horizontal'],
       icon: am5.Graphics.new(this.root, {
@@ -301,15 +306,69 @@ export class AmChartService {
       }),
     });
 
+    resizeButtonTo = am5.Button.new(this.root, {
+      themeTags: ['resize', 'horizontal'],
+      icon: am5.Graphics.new(this.root, {
+        themeTags: ['icon'],
+      }),
+    });
+
+    this.createFromButton(resizeButtonFrom, rangeFrom);
+    this.createToButton(resizeButtonTo, rangeFrom, rangeTo);
+
+    this.limitRangeSelection(
+      resizeButtonFrom,
+      resizeButtonTo,
+      rangeFrom,
+      rangeTo
+    );
+  }
+
+  getRangeXposition(range: am5.DataItem<am5xy.IDateAxisDataItem>) {
+    const pxTo = this.xAxis.valueToPosition(range.get('value') || 0);
+    let position = this.xAxis.toAxisPosition(pxTo);
+    // const position = this.xAxis.toAxisPosition(
+    //   this.chart.plotContainer.width() / pxTo
+    // );
+    position = this.chart.plotContainer.width() * pxTo
+    return position;
+  }
+
+  // limita il drag dei resize buttons allo spazio disponibile tra i range e il container
+  limitRangeSelection(
+    resizeButtonFrom: am5.Button,
+    resizeButtonTo: am5.Button,
+    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
+    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>
+  ) {
+    // restrict from being dragged from sessionTo and prev session or outside of plot
+    resizeButtonFrom.adapters.add('x', (x) => {
+      if (!x) return 0;
+
+      // posizione della fine del range corrente
+      const positionTo = this.getRangeXposition(rangeTo)-50;
+
+      return Math.max(0, Math.min(positionTo, +x));
+    });
+
+    // restrict from being dragged from sessionFrom and next session or outside of plot
+    resizeButtonTo.adapters.add('x', (x) => {
+      if (!x) return 0;
+
+      // posizione dell'inizio del range corrente
+      const positionFrom = this.getRangeXposition(rangeFrom)+50;
+
+      return Math.max(positionFrom, Math.min(this.chart.plotContainer.width(), +x))
+    });
+  }
+
+  createFromButton(
+    resizeButtonFrom: am5.Button,
+    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>
+  ) {
     // restrict from being dragged vertically
     resizeButtonFrom.adapters.add('y', function () {
       return 0;
-    });
-
-    // restrict from being dragged outside of plot
-    resizeButtonFrom.adapters.add('x', (x) => {
-      if (!x) return 0;
-      return Math.max(0, Math.min(this.chart.plotContainer.width(), +x));
     });
 
     // change range when x changes
@@ -319,7 +378,7 @@ export class AmChartService {
 
     // get the value when drag stops
     resizeButtonFrom.events.on('dragstop', () => {
-      console.log('DRAGSTOP FROM', this.getButtonDateFrom(resizeButtonFrom));
+      console.log('DRAGSTOP FROM', this.getButtonDateFrom(resizeButtonFrom), this.getRangeXposition(rangeFrom));
     });
 
     // set bullet for the range
@@ -337,22 +396,9 @@ export class AmChartService {
     rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
     rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>
   ) {
-    resizeButtonTo = am5.Button.new(this.root, {
-      themeTags: ['resize', 'horizontal'],
-      icon: am5.Graphics.new(this.root, {
-        themeTags: ['icon'],
-      }),
-    });
-
     // restrict from being dragged vertically
     resizeButtonTo.adapters.add('y', function () {
       return 0;
-    });
-
-    // restrict from being dragged outside of plot
-    resizeButtonTo.adapters.add('x', (x) => {
-      if (!x) return 0;
-      return Math.max(0, Math.min(this.chart.plotContainer.width(), +x));
     });
 
     // change range when x changes
@@ -364,7 +410,7 @@ export class AmChartService {
 
     // get the value when drag stops
     resizeButtonTo.events.on('dragstop', () => {
-      console.log('DRAGSTOP TO', this.getButtonDateTo(resizeButtonTo));
+      console.log('DRAGSTOP TO', this.getButtonDateTo(resizeButtonTo), this.getRangeXposition(rangeTo));
     });
 
     // set bullet for the range
