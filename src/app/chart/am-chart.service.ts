@@ -247,7 +247,13 @@ export class AmChartService {
     sessions?.forEach((session) => {
       this.addSession(session.startedAt, session.stoppedAt);
     });
+
+    this.maxNextRangePosition = this.chart.plotContainer.width();
+    this.maxPrevRangePosition = 0;
   }
+
+  maxNextRangePosition = 0;
+  maxPrevRangePosition = 0;
 
   sessionColor = am5.color(0x00ff00);
   addSession(from: Date, to: Date) {
@@ -324,13 +330,25 @@ export class AmChartService {
     );
   }
 
-  getRangeXposition(range: am5.DataItem<am5xy.IDateAxisDataItem>) {
+  getAllRanges(): number[] {
+    const ranges = this.xAxis.axisRanges.values.map(
+      (range) => range._settings.value || 0
+    );
+    // console.log('getAllRanges', ranges);
+    return ranges;
+  }
+
+  getPositionFromRange(range: am5.DataItem<am5xy.IDateAxisDataItem>) {
     const pxTo = this.xAxis.valueToPosition(range.get('value') || 0);
     let position = this.xAxis.toAxisPosition(pxTo);
-    // const position = this.xAxis.toAxisPosition(
-    //   this.chart.plotContainer.width() / pxTo
-    // );
-    position = this.chart.plotContainer.width() * pxTo
+    position = this.chart.plotContainer.width() * pxTo;
+    return position;
+  }
+
+  getPositionFromValue(value: number) {
+    const pxTo = this.xAxis.valueToPosition(value);
+    let position = this.xAxis.toAxisPosition(pxTo);
+    position = this.chart.plotContainer.width() * pxTo;
     return position;
   }
 
@@ -346,9 +364,12 @@ export class AmChartService {
       if (!x) return 0;
 
       // posizione della fine del range corrente
-      const positionTo = this.getRangeXposition(rangeTo)-50;
+      const positionTo = this.getPositionFromRange(rangeTo) - 50;
 
-      return Math.max(0, Math.min(positionTo, +x));
+      // posizione limite sinistra 0 oppure range precedente + 50
+      const minLeft = this.maxPrevRangePosition;
+
+      return Math.max(minLeft, Math.min(positionTo, +x));
     });
 
     // restrict from being dragged from sessionFrom and next session or outside of plot
@@ -356,10 +377,48 @@ export class AmChartService {
       if (!x) return 0;
 
       // posizione dell'inizio del range corrente
-      const positionFrom = this.getRangeXposition(rangeFrom)+50;
+      const positionFrom = this.getPositionFromRange(rangeFrom) + 50;
 
-      return Math.max(positionFrom, Math.min(this.chart.plotContainer.width(), +x))
+      // posizione limite destra plotContainer.width() oppure range successivo - 50
+      const maxRight = this.maxNextRangePosition;
+
+      return Math.max(positionFrom, Math.min(maxRight, +x));
     });
+  }
+
+  getMaxNextRangePosition(rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>) {
+    // prendo tutti i range presenti nel chart, li filtro per quelli che hanno un value maggiore di quello corrente e prendo il minimo
+    // Ottieni tutti i range definiti sull'asse delle date
+    const allMajorRanges = this.getAllRanges().filter(
+      (range) => range > (rangeTo.get('value') || 0)
+    );
+    console.log('allMajorRanges', allMajorRanges);
+    console.log('Math.min(...allMajorRanges)', Math.min(...allMajorRanges));
+
+    // Se non ci sono range successivi, il limite è plotContainer.width()
+    if (allMajorRanges.length === 0) return this.chart.plotContainer.width();
+
+    const maxNextRange = Math.min(...allMajorRanges);
+
+    // Posizione limite destra plotContainer.width() oppure range successivo - 50
+    const maxNextRangePosition = this.getPositionFromValue(maxNextRange) - 50;
+
+    return maxNextRangePosition;
+  }
+
+  getMaxPrevRangePosition(rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>) {
+    // prendo tutti i range presenti nel chart, li filtro per quelli che hanno un endValue minore di quello corrente e prendo il massimo
+    // Ottieni tutti i range definiti sull'asse delle date
+    const allMinorRanges = this.getAllRanges().filter(
+      (range) => range < (rangeFrom.get('value') || 0)
+    );
+    // Se non ci sono range precedenti, il limite è 0
+    const maxPrevRange = Math.max(0, Math.max(...allMinorRanges));
+    // Posizione limite sinistra 0 oppure range precedente + 50
+    const maxPrevRangePosition =
+      maxPrevRange === 0 ? 0 : this.getPositionFromValue(maxPrevRange) + 50;
+
+    return maxPrevRangePosition;
   }
 
   createFromButton(
@@ -371,6 +430,14 @@ export class AmChartService {
       return 0;
     });
 
+    resizeButtonFrom.events.on('dragstart', () => {
+      this.maxPrevRangePosition = this.getMaxPrevRangePosition(rangeFrom);
+      console.log(
+        'DRAGSTART FROM maxPrevRangePosition set:',
+        this.maxPrevRangePosition
+      );
+    });
+
     // change range when x changes
     resizeButtonFrom.events.on('dragged', () => {
       rangeFrom.set('value', this.getButtonXPosition(resizeButtonFrom));
@@ -378,7 +445,12 @@ export class AmChartService {
 
     // get the value when drag stops
     resizeButtonFrom.events.on('dragstop', () => {
-      console.log('DRAGSTOP FROM', this.getButtonDateFrom(resizeButtonFrom), this.getRangeXposition(rangeFrom));
+      this.resetLimits();
+      console.log(
+        'DRAGSTOP FROM',
+        this.getButtonDateFrom(resizeButtonFrom),
+        this.getPositionFromRange(rangeFrom)
+      );
     });
 
     // set bullet for the range
@@ -391,6 +463,13 @@ export class AmChartService {
     );
   }
 
+  resetLimits() {
+    setTimeout(() => {
+      this.maxNextRangePosition = this.chart.plotContainer.width();
+      this.maxPrevRangePosition = 0;
+    }, 200);
+  }
+
   createToButton(
     resizeButtonTo: am5.Button,
     rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
@@ -399,6 +478,14 @@ export class AmChartService {
     // restrict from being dragged vertically
     resizeButtonTo.adapters.add('y', function () {
       return 0;
+    });
+
+    resizeButtonTo.events.on('dragstart', () => {
+      this.maxNextRangePosition = this.getMaxNextRangePosition(rangeTo);
+      console.log(
+        'DRAGSTART TO maxNextRangePosition set:',
+        this.maxNextRangePosition
+      );
     });
 
     // change range when x changes
@@ -410,7 +497,12 @@ export class AmChartService {
 
     // get the value when drag stops
     resizeButtonTo.events.on('dragstop', () => {
-      console.log('DRAGSTOP TO', this.getButtonDateTo(resizeButtonTo), this.getRangeXposition(rangeTo));
+      this.resetLimits();
+      console.log(
+        'DRAGSTOP TO',
+        this.getButtonDateTo(resizeButtonTo),
+        this.getPositionFromRange(rangeTo)
+      );
     });
 
     // set bullet for the range

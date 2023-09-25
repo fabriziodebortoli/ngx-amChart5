@@ -52,4 +52,8 @@ export class AppComponent {
     element.click(); // simulate click
     document.body.removeChild(element);
   }
+
+  getAllRanges(){
+    this.chartService.getAllRanges();
+  }
 }
