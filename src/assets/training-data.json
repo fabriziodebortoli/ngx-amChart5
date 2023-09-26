@@ -23,7 +23,7 @@
       "id": "fake-session-id",
       "startedAt": "2023-09-07T14:35:00Z",
       "stoppedAt": "2023-09-07T14:50:00Z",
-      "duration": 9000
+      "duration": 900
     },
     {
       "name": "Session_3",

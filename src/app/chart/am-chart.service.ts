@@ -555,12 +555,23 @@ export class AmChartService {
 
     let idx = 0;
     sessions?.forEach((session, index) => {
+      session.duration = this.getDurationFromRange(
+        ranges[idx],
+        ranges[idx + 1]
+      );
+
       session.startedAt = new Date(ranges[idx]).toISOString();
       idx++;
       session.stoppedAt = new Date(ranges[idx]).toISOString();
       idx++;
     });
     console.log('NEW sessions', sessions);
+  }
+
+  getDurationFromRange(rangeFrom: number, rangeTo: number) {
+    rangeTo = new Date(rangeTo).getTime();
+    rangeFrom = new Date(rangeFrom).getTime();
+    return Math.floor((rangeTo - rangeFrom) / 1000);
   }
 
   getAllRanges(): number[] {
