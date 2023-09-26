@@ -13,21 +13,21 @@
   "sessions": [
     {
       "name": "Session_1",
-      "id": "fake-session-id",
+      "id": "fake-session-id-1",
       "startedAt": "2023-09-07T14:05:00Z",
       "stoppedAt": "2023-09-07T14:10:00Z",
       "duration": 300
     },
     {
       "name": "Session_2",
-      "id": "fake-session-id",
+      "id": "fake-session-id-2",
       "startedAt": "2023-09-07T14:35:00Z",
       "stoppedAt": "2023-09-07T14:50:00Z",
       "duration": 900
     },
     {
       "name": "Session_3",
-      "id": "fake-session-id",
+      "id": "fake-session-id-3",
       "startedAt": "2023-09-07T15:00:00Z",
       "stoppedAt": "2023-09-07T15:50:00Z",
       "duration": 3000

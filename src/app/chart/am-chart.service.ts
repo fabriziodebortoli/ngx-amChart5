@@ -3,7 +3,7 @@ import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
 import * as am5xy from '@amcharts/amcharts5/xy';
 import { SmoothedXYLineSeries } from '@amcharts/amcharts5/xy';
 import { Injectable } from '@angular/core';
-import { Training } from '../models';
+import { Session, Training } from '../models';
 import { ChartUtilsService } from './chart-utils.service';
 
 @Injectable()
@@ -252,14 +252,18 @@ export class AmChartService {
     console.log('ORIG sessions', sessions);
 
     sessions?.forEach((session) => {
-      this.addSession(new Date(session.startedAt), new Date(session.stoppedAt));
+      this.addSession(
+        session,
+        new Date(session.startedAt),
+        new Date(session.stoppedAt)
+      );
     });
 
     this.maxNextRangePosition = this.chart.plotContainer.width();
     this.maxPrevRangePosition = 0;
   }
 
-  addSession(from: Date, to: Date) {
+  addSession(session: Session, from: Date, to: Date) {
     const fromTime = new Date(from).getTime();
     const toTime = new Date(to).getTime();
 
@@ -298,6 +302,55 @@ export class AmChartService {
     });
 
     this.manageResizeButtons(rangeFrom, rangeTo);
+
+    setTimeout(
+      () => this.addEditSessionButton(session, rangeFrom, rangeTo),
+      100
+    );
+  }
+
+  addEditSessionButton(
+    session: Session,
+    from: am5.DataItem<am5xy.IDateAxisDataItem>,
+    to: am5.DataItem<am5xy.IDateAxisDataItem>
+  ) {
+    const rangeFrom = from.get('value') || 0;
+    const rangeTo = to.get('value') || 0;
+    const centerRange = rangeFrom + (rangeTo - rangeFrom) / 2;
+
+    // create range in centerRange
+    let rangeCenter: am5.DataItem<am5xy.IDateAxisDataItem>;
+    rangeCenter = this.xAxis.createAxisRange(this.xAxis.makeDataItem({}));
+    rangeCenter.set('value', centerRange);
+
+    // create edit button on centerRange
+    let editButton: am5.Button;
+    editButton = am5.Button.new(this.root, {
+      label: am5.Label.new(this.root, {
+        text: 'EDIT',
+      }),
+      centerX: am5.percent(50),
+      centerY: am5.percent(110),
+      id: 'editButton_'+session.id,
+    });
+
+    rangeCenter.set(
+      'bullet',
+      am5xy.AxisBullet.new(this.root, {
+        location: 0,
+        sprite: editButton,
+      })
+    );
+
+    // let button = this.chart.plotContainer.children.push(
+    //   am5.Button.new(this.root, {
+    //     dx: this.getPositionFromValue(centerRange) - 10,
+    //     dy: 10,
+    //     label: am5.Label.new(this.root, {
+    //       text: 'Add data',
+    //     }),
+    //   })
+    // );
   }
 
   // Crea e gestisce i resize buttons
@@ -592,6 +645,6 @@ export class AmChartService {
     const pxTo = this.xAxis.valueToPosition(value);
     let position = this.xAxis.toAxisPosition(pxTo);
     position = this.chart.plotContainer.width() * pxTo;
-    return position;
+    return Math.floor(position);
   }
 }
