@@ -15,6 +15,13 @@ export class AmChartService {
   private yAxis!: am5xy.DateAxis<am5xy.AxisRendererY>;
   private BPMserie!: SmoothedXYLineSeries;
   private VO2serie!: SmoothedXYLineSeries;
+  private maxNextRangePosition = 0;
+  private maxPrevRangePosition = 0;
+  private sessionColor = am5.color(0x00ff00);
+
+  private mode: 'edit' | 'readonly' = 'edit';
+
+  training!: Training;
 
   constructor(private chartUtilsService: ChartUtilsService) {}
 
@@ -239,24 +246,20 @@ export class AmChartService {
     this.cursor.lineY.set('visible', false);
   }
 
-  training!: Training;
-  setTrainingData(Training: Training, showButtons: boolean = true) {
+  setTrainingData(Training: Training) {
     this.training = Training;
     const sessions = Training.sessions;
+    console.log('ORIG sessions', sessions);
 
     sessions?.forEach((session) => {
-      this.addSession(session.startedAt, session.stoppedAt, showButtons);
+      this.addSession(new Date(session.startedAt), new Date(session.stoppedAt));
     });
 
     this.maxNextRangePosition = this.chart.plotContainer.width();
     this.maxPrevRangePosition = 0;
   }
 
-  maxNextRangePosition = 0;
-  maxPrevRangePosition = 0;
-
-  sessionColor = am5.color(0x00ff00);
-  addSession(from: Date, to: Date, showButtons: boolean = true) {
+  addSession(from: Date, to: Date) {
     const fromTime = new Date(from).getTime();
     const toTime = new Date(to).getTime();
 
@@ -294,14 +297,13 @@ export class AmChartService {
       return 0;
     });
 
-    this.manageResizeButtons(rangeFrom, rangeTo, showButtons);
+    this.manageResizeButtons(rangeFrom, rangeTo);
   }
 
   // Crea e gestisce i resize buttons
   manageResizeButtons(
     rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
-    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>,
-    showButtons: boolean = true
+    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>
   ) {
     let resizeButtonFrom!: am5.Button;
     let resizeButtonTo!: am5.Button;
@@ -320,8 +322,8 @@ export class AmChartService {
       }),
     });
 
-    this.createFromButton(resizeButtonFrom, rangeFrom, showButtons);
-    this.createToButton(resizeButtonTo, rangeFrom, rangeTo, showButtons);
+    this.createFromButton(resizeButtonFrom, rangeFrom);
+    this.createToButton(resizeButtonTo, rangeFrom, rangeTo);
 
     this.limitRangeSelection(
       resizeButtonFrom,
@@ -329,28 +331,6 @@ export class AmChartService {
       rangeFrom,
       rangeTo
     );
-  }
-
-  getAllRanges(): number[] {
-    const ranges = this.xAxis.axisRanges.values.map(
-      (range) => range._settings.value || 0
-    );
-    // console.log('getAllRanges', ranges);
-    return ranges;
-  }
-
-  getPositionFromRange(range: am5.DataItem<am5xy.IDateAxisDataItem>) {
-    const pxTo = this.xAxis.valueToPosition(range.get('value') || 0);
-    let position = this.xAxis.toAxisPosition(pxTo);
-    position = this.chart.plotContainer.width() * pxTo;
-    return position;
-  }
-
-  getPositionFromValue(value: number) {
-    const pxTo = this.xAxis.valueToPosition(value);
-    let position = this.xAxis.toAxisPosition(pxTo);
-    position = this.chart.plotContainer.width() * pxTo;
-    return position;
   }
 
   // limita il drag dei resize buttons allo spazio disponibile tra i range e il container
@@ -387,14 +367,19 @@ export class AmChartService {
     });
   }
 
+  /**
+   * Ottiene la posizione del range successivo a quello corrente
+   * @param rangeTo range corrente
+   * @returns posizione del range successivo a quello corrente
+   */
   getMaxNextRangePosition(rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>) {
     // prendo tutti i range presenti nel chart, li filtro per quelli che hanno un value maggiore di quello corrente e prendo il minimo
     // Ottieni tutti i range definiti sull'asse delle date
     const allMajorRanges = this.getAllRanges().filter(
       (range) => range > (rangeTo.get('value') || 0)
     );
-    console.log('allMajorRanges', allMajorRanges);
-    console.log('Math.min(...allMajorRanges)', Math.min(...allMajorRanges));
+    // console.log('allMajorRanges', allMajorRanges);
+    // console.log('Math.min(...allMajorRanges)', Math.min(...allMajorRanges));
 
     // Se non ci sono range successivi, il limite è plotContainer.width()
     if (allMajorRanges.length === 0) return this.chart.plotContainer.width();
@@ -407,6 +392,11 @@ export class AmChartService {
     return maxNextRangePosition;
   }
 
+  /**
+   * Ottiene la posizione del range precedente a quello corrente
+   * @param rangeFrom range corrente
+   * @returns posizione del range precedente a quello corrente
+   */
   getMaxPrevRangePosition(rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>) {
     // prendo tutti i range presenti nel chart, li filtro per quelli che hanno un endValue minore di quello corrente e prendo il massimo
     // Ottieni tutti i range definiti sull'asse delle date
@@ -422,10 +412,14 @@ export class AmChartService {
     return maxPrevRangePosition;
   }
 
+  /**
+   * Crea il resize button per il range corrente
+   * @param resizeButtonFrom
+   * @param rangeFrom
+   */
   createFromButton(
     resizeButtonFrom: am5.Button,
-    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
-    showButton: boolean = true
+    rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>
   ) {
     // restrict from being dragged vertically
     resizeButtonFrom.adapters.add('y', function () {
@@ -453,9 +447,11 @@ export class AmChartService {
         this.getButtonDateFrom(resizeButtonFrom),
         this.getPositionFromRange(rangeFrom)
       );
+
+      this.saveRanges();
     });
 
-    if (showButton) {
+    if (this.mode === 'edit') {
       // set bullet for the range
       rangeFrom.set(
         'bullet',
@@ -467,18 +463,16 @@ export class AmChartService {
     }
   }
 
-  resetLimits() {
-    setTimeout(() => {
-      this.maxNextRangePosition = this.chart.plotContainer.width();
-      this.maxPrevRangePosition = 0;
-    }, 200);
-  }
-
+  /**
+   * Crea il resize button per il range successivo a quello corrente
+   * @param resizeButtonTo
+   * @param rangeFrom
+   * @param rangeTo
+   */
   createToButton(
     resizeButtonTo: am5.Button,
     rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>,
-    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>,
-    showButton: boolean = true
+    rangeTo: am5.DataItem<am5xy.IDateAxisDataItem>
   ) {
     // restrict from being dragged vertically
     resizeButtonTo.adapters.add('y', function () {
@@ -508,9 +502,11 @@ export class AmChartService {
         this.getButtonDateTo(resizeButtonTo),
         this.getPositionFromRange(rangeTo)
       );
+
+      this.saveRanges();
     });
 
-    if (showButton) {
+    if (this.mode === 'edit') {
       // set bullet for the range
       rangeTo.set(
         'bullet',
@@ -521,6 +517,13 @@ export class AmChartService {
     }
   }
 
+  resetLimits() {
+    setTimeout(() => {
+      this.maxNextRangePosition = this.chart.plotContainer.width();
+      this.maxPrevRangePosition = 0;
+    }, 200);
+  }
+
   clearRanges() {
     this.xAxis.axisRanges.clear();
   }
@@ -529,13 +532,55 @@ export class AmChartService {
     console.log('drawRanges');
   }
 
-  setEditMode() {
+  refreshRanges() {
     this.clearRanges();
-    this.setTrainingData(this.training, true);
+    this.setTrainingData(this.training);
+  }
+
+  setEditMode() {
+    this.mode = 'edit';
+    this.refreshRanges();
   }
 
   setReadonlyMode() {
-    this.clearRanges();
-    this.setTrainingData(this.training, false);
+    this.mode = 'readonly';
+    this.refreshRanges();
+  }
+
+  saveRanges() {
+    const ranges = this.getAllRanges();
+
+    let sessions = this.training?.sessions;
+    console.log('OLD sessions', sessions);
+
+    let idx = 0;
+    sessions?.forEach((session, index) => {
+      session.startedAt = new Date(ranges[idx]).toISOString();
+      idx++;
+      session.stoppedAt = new Date(ranges[idx]).toISOString();
+      idx++;
+    });
+    console.log('NEW sessions', sessions);
+  }
+
+  getAllRanges(): number[] {
+    const ranges = this.xAxis.axisRanges.values.map(
+      (range) => range._settings.value || 0
+    );
+    return ranges;
+  }
+
+  getPositionFromRange(range: am5.DataItem<am5xy.IDateAxisDataItem>) {
+    const pxTo = this.xAxis.valueToPosition(range.get('value') || 0);
+    let position = this.xAxis.toAxisPosition(pxTo);
+    position = this.chart.plotContainer.width() * pxTo;
+    return position;
+  }
+
+  getPositionFromValue(value: number) {
+    const pxTo = this.xAxis.valueToPosition(value);
+    let position = this.xAxis.toAxisPosition(pxTo);
+    position = this.chart.plotContainer.width() * pxTo;
+    return position;
   }
 }

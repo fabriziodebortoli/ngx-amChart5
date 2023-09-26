@@ -14,8 +14,8 @@ export interface Training {
 export interface Session {
   id: string;
   name: string;
-  startedAt: Date;
-  stoppedAt: Date;
+  startedAt: string;
+  stoppedAt: string;
   duration: number;
 }
 
