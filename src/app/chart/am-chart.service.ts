@@ -19,7 +19,7 @@ export class AmChartService {
   private maxPrevRangePosition = 0;
   private sessionColor = am5.color(0x00ff00);
 
-  private mode: 'edit' | 'readonly' = 'edit';
+  private mode: 'edit' | 'view' = 'edit';
 
   training!: Training;
 
@@ -303,10 +303,12 @@ export class AmChartService {
 
     this.manageResizeButtons(rangeFrom, rangeTo);
 
-    setTimeout(
-      () => this.addEditSessionButton(session, rangeFrom, rangeTo),
-      100
-    );
+    if(this.mode === 'view'){
+      setTimeout(
+        () => this.addEditSessionButton(session, rangeFrom, rangeTo),
+        100
+      );
+    }
   }
 
   addEditSessionButton(
@@ -596,7 +598,7 @@ export class AmChartService {
   }
 
   setReadonlyMode() {
-    this.mode = 'readonly';
+    this.mode = 'view';
     this.refreshRanges();
   }
 
