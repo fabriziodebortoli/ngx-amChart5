@@ -6,6 +6,15 @@ import { Injectable } from '@angular/core';
 import { Session, Training } from '../models';
 import { ChartUtilsService } from './chart-utils.service';
 
+export enum ChartModes {
+  EditRange = 'editRange',
+  EditSession = 'editSession',
+  AddSession = 'addSession',
+  Readonly = 'readonly',
+}
+
+const _MIN_RANGE_WIDTH = 1;
+
 @Injectable()
 export class AmChartService {
   private root!: am5.Root;
@@ -19,7 +28,7 @@ export class AmChartService {
   private maxPrevRangePosition = 0;
   private sessionColor = am5.color(0x00ff00);
 
-  private mode: 'edit' | 'view' = 'edit';
+  private mode: ChartModes = ChartModes.Readonly;
 
   training!: Training;
 
@@ -34,8 +43,6 @@ export class AmChartService {
       am5xy.XYChart.new(this.root, {
         panX: false,
         panY: false,
-        // wheelX: 'panX',
-        // wheelY: 'zoomX',
         pinchZoomX: false,
       })
     );
@@ -303,12 +310,63 @@ export class AmChartService {
 
     this.manageResizeButtons(rangeFrom, rangeTo);
 
-    if(this.mode === 'view'){
+    if (this.mode === ChartModes.EditSession) {
       setTimeout(
         () => this.addEditSessionButton(session, rangeFrom, rangeTo),
         100
       );
     }
+  }
+
+  addNewSessionButtons() {
+    // to remember: in 'view' mode there will be also the edit button ranges at the center of every session
+    const rangesValues = [
+      this.xAxis.positionToValue(0),
+      ...this.getAllRanges(),
+      this.xAxis.positionToValue(100),
+    ];
+
+    // console.log('rangesPx', rangesPx);
+    rangesValues.forEach((value, index) => {
+      if (index === rangesValues.length - 1) return;
+
+      const nx =
+        (rangesValues[index + 1] - rangesValues[index]) / 2 +
+        rangesValues[index];
+
+      let rangeNewSessionHere: am5.DataItem<am5xy.IDateAxisDataItem>;
+      rangeNewSessionHere = this.xAxis.createAxisRange(
+        this.xAxis.makeDataItem({})
+      );
+      rangeNewSessionHere.set('value', nx);
+
+      // rangeNewSessionHere.set('value', 1694097500000);
+
+      rangeNewSessionHere.get('grid')?.setAll({
+        strokeOpacity: 1,
+        stroke: am5.color(0x000000),
+        layer: 2,
+      });
+
+      // create edit button on centerRange
+      let newButton: am5.Button;
+      newButton = am5.Button.new(this.root, {
+        label: am5.Label.new(this.root, {
+          text: 'NEW',
+        }),
+        centerX: am5.percent(50),
+        centerY: am5.percent(110),
+        id: 'newButton_' + index,
+      });
+
+      rangeNewSessionHere.set(
+        'bullet',
+        am5xy.AxisBullet.new(this.root, {
+          location: 0,
+          sprite: newButton,
+        })
+      );
+    });
   }
 
   addEditSessionButton(
@@ -333,7 +391,7 @@ export class AmChartService {
       }),
       centerX: am5.percent(50),
       centerY: am5.percent(110),
-      id: 'editButton_'+session.id,
+      id: 'editButton_' + session.id,
     });
 
     rangeCenter.set(
@@ -400,9 +458,9 @@ export class AmChartService {
       if (!x) return 0;
 
       // posizione della fine del range corrente
-      const positionTo = this.getPositionFromRange(rangeTo) - 50;
+      const positionTo = this.getPositionFromRange(rangeTo) - _MIN_RANGE_WIDTH;
 
-      // posizione limite sinistra 0 oppure range precedente + 50
+      // posizione limite sinistra 0 oppure range precedente + _MIN_RANGE_WIDTH
       const minLeft = this.maxPrevRangePosition;
 
       return Math.max(minLeft, Math.min(positionTo, +x));
@@ -413,9 +471,10 @@ export class AmChartService {
       if (!x) return 0;
 
       // posizione dell'inizio del range corrente
-      const positionFrom = this.getPositionFromRange(rangeFrom) + 50;
+      const positionFrom =
+        this.getPositionFromRange(rangeFrom) + _MIN_RANGE_WIDTH;
 
-      // posizione limite destra plotContainer.width() oppure range successivo - 50
+      // posizione limite destra plotContainer.width() oppure range successivo - _MIN_RANGE_WIDTH
       const maxRight = this.maxNextRangePosition;
 
       return Math.max(positionFrom, Math.min(maxRight, +x));
@@ -441,8 +500,9 @@ export class AmChartService {
 
     const maxNextRange = Math.min(...allMajorRanges);
 
-    // Posizione limite destra plotContainer.width() oppure range successivo - 50
-    const maxNextRangePosition = this.getPositionFromValue(maxNextRange) - 50;
+    // Posizione limite destra plotContainer.width() oppure range successivo - _MIN_RANGE_WIDTH
+    const maxNextRangePosition =
+      this.getPositionFromValue(maxNextRange) - _MIN_RANGE_WIDTH;
 
     return maxNextRangePosition;
   }
@@ -460,9 +520,11 @@ export class AmChartService {
     );
     // Se non ci sono range precedenti, il limite è 0
     const maxPrevRange = Math.max(0, Math.max(...allMinorRanges));
-    // Posizione limite sinistra 0 oppure range precedente + 50
+    // Posizione limite sinistra 0 oppure range precedente + _MIN_RANGE_WIDTH
     const maxPrevRangePosition =
-      maxPrevRange === 0 ? 0 : this.getPositionFromValue(maxPrevRange) + 50;
+      maxPrevRange === 0
+        ? 0
+        : this.getPositionFromValue(maxPrevRange) + _MIN_RANGE_WIDTH;
 
     return maxPrevRangePosition;
   }
@@ -506,7 +568,7 @@ export class AmChartService {
       this.saveRanges();
     });
 
-    if (this.mode === 'edit') {
+    if (this.mode === ChartModes.EditRange) {
       // set bullet for the range
       rangeFrom.set(
         'bullet',
@@ -561,7 +623,7 @@ export class AmChartService {
       this.saveRanges();
     });
 
-    if (this.mode === 'edit') {
+    if (this.mode === ChartModes.EditRange) {
       // set bullet for the range
       rangeTo.set(
         'bullet',
@@ -592,13 +654,21 @@ export class AmChartService {
     this.setTrainingData(this.training);
   }
 
-  setEditMode() {
-    this.mode = 'edit';
-    this.refreshRanges();
+  setEditRangeMode() {
+    this.setMode(ChartModes.EditRange);
+  }
+
+  setEditSessionMode() {
+    this.setMode(ChartModes.EditSession);
   }
 
   setReadonlyMode() {
-    this.mode = 'view';
+    this.setMode(ChartModes.Readonly);
+  }
+
+  setMode(mode: ChartModes) {
+    this.saveRanges();
+    this.mode = mode;
     this.refreshRanges();
   }
 
@@ -634,6 +704,10 @@ export class AmChartService {
       (range) => range._settings.value || 0
     );
     return ranges;
+  }
+
+  getAllRangesPx(): number[] {
+    return this.getAllRanges().map((range) => this.getPositionFromValue(range));
   }
 
   getPositionFromRange(range: am5.DataItem<am5xy.IDateAxisDataItem>) {

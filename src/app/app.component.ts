@@ -70,7 +70,15 @@ export class AppComponent {
     this.chartService.setReadonlyMode();
   }
 
-  setEditMode() {
-    this.chartService.setEditMode();
+  setEditRangeMode() {
+    this.chartService.setEditRangeMode();
+  }
+
+  setEditSessionMode() {
+    this.chartService.setEditSessionMode();
+  }
+
+  addNewSessionButtons() {
+    this.chartService.addNewSessionButtons();
   }
 }
