@@ -26,7 +26,8 @@ export class AmChartService {
   private VO2serie!: SmoothedXYLineSeries;
   private maxNextRangePosition = 0;
   private maxPrevRangePosition = 0;
-  private sessionColor = am5.color(0x00ff00);
+  private sessionColor = am5.color('#858247');
+  private buttonColor = am5.color('#1c1d20');
 
   private mode: ChartModes = ChartModes.Readonly;
 
@@ -139,7 +140,7 @@ export class AmChartService {
         valueYField: 'vo2',
         valueXField: 'date',
         stroke: am5.color('#303F9F'),
-        tooltip: tooltip
+        tooltip: tooltip,
       })
     );
 
@@ -307,7 +308,7 @@ export class AmChartService {
     rangeFrom.set('endValue', toTime);
     rangeFrom.set('affectsMinMax', true);
     rangeFrom.get('grid')?.setAll({
-      strokeOpacity: 1,
+      strokeOpacity: 0.4,
       stroke: this.sessionColor,
     });
 
@@ -317,7 +318,7 @@ export class AmChartService {
     rangeTo.set('value', toTime);
     rangeTo.set('affectsMinMax', true);
     rangeTo.get('grid')?.setAll({
-      strokeOpacity: 1,
+      strokeOpacity: 0.4,
       stroke: this.sessionColor,
     });
 
@@ -403,16 +404,40 @@ export class AmChartService {
 
   // create "edit session" button
   createEditSessionButton(id: number) {
-    return am5.Button.new(this.root, {
+    let button: am5.Button;
+    button = am5.Button.new(this.root, {
       label: am5.Label.new(this.root, {
         text: 'EDIT',
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '600',
+        paddingTop: 2,
+        paddingRight: 2,
+        paddingBottom: 2,
+        paddingLeft: 2,
+        fill: this.buttonColor,
       }),
       centerX: am5.percent(50),
       centerY: am5.percent(110),
       id: 'edit-session-' + id,
     });
+
+    button.get('background')?.setAll({
+      fill: am5.color("#fff"),
+      fillOpacity: 0.7,
+      stroke: this.buttonColor,
+    });
+
+    button.get("background")?.states.create("hover", {}).setAll({
+      fill: am5.color("#eee"),
+      fillOpacity: 1
+    });
+
+    button.get("background")?.states.create("down", {}).setAll({
+      fill: am5.color("#ccc"),
+      fillOpacity: 0.5
+    });
+
+    return button;
   }
 
   // create "new session" button
@@ -422,12 +447,31 @@ export class AmChartService {
     button = am5.Button.new(this.root, {
       label: am5.Label.new(this.root, {
         text: 'NEW',
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '600',
+        paddingTop: 2,
+        paddingRight: 2,
+        paddingBottom: 2,
+        paddingLeft: 2,
       }),
       centerX: am5.percent(50),
       centerY: am5.percent(110),
       id: 'new-session-' + id,
+    });
+
+    button.get('background')?.setAll({
+      fill: this.buttonColor,
+      fillOpacity: 0.7,
+    });
+
+    button.get("background")?.states.create("hover", {}).setAll({
+      fill: this.buttonColor,
+      fillOpacity: 1
+    });
+
+    button.get("background")?.states.create("down", {}).setAll({
+      fill: this.buttonColor,
+      fillOpacity: 0.5
     });
 
     return button;
