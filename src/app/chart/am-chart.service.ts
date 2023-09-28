@@ -84,9 +84,27 @@ export class AmChartService {
     this.addBPMSerie();
     this.addVO2Serie();
     this.chart.appear(1000, 100);
+
+    this.cursor = this.chart.set(
+      'cursor',
+      am5xy.XYCursor.new(this.root, {
+        behavior: 'none',
+      })
+    );
+    this.cursor.lineY.set('visible', false);
   }
 
   addBPMSerie() {
+    let tooltip = am5.Tooltip.new(this.root, {
+      getFillFromSprite: false,
+      labelText: '[bold]BPM[/]: {bpmReal}',
+      autoTextColor: false,
+    });
+    tooltip.get('background')?.setAll({
+      fill: am5.color('#D32F2F'),
+      fillOpacity: 1,
+    });
+
     this.BPMserie = this.chart.series.push(
       am5xy.SmoothedXYLineSeries.new(this.root, {
         name: 'BPM',
@@ -95,6 +113,7 @@ export class AmChartService {
         valueYField: 'bpm',
         valueXField: 'date',
         stroke: am5.color('#D32F2F'),
+        tooltip: tooltip,
       })
     );
 
@@ -102,6 +121,16 @@ export class AmChartService {
   }
 
   addVO2Serie() {
+    let tooltip = am5.Tooltip.new(this.root, {
+      getFillFromSprite: false,
+      labelText: '[bold]VO2[/]: {vo2Real}',
+      autoTextColor: false,
+    });
+    tooltip.get('background')?.setAll({
+      fill: am5.color('#303F9F'),
+      fillOpacity: 1,
+    });
+
     this.VO2serie = this.chart.series.push(
       am5xy.SmoothedXYLineSeries.new(this.root, {
         name: 'VO2',
@@ -110,6 +139,7 @@ export class AmChartService {
         valueYField: 'vo2',
         valueXField: 'date',
         stroke: am5.color('#303F9F'),
+        tooltip: tooltip
       })
     );
 

@@ -22,7 +22,7 @@ export class ChartUtilsService {
     }
   }
 
-  date = new Date("2023-09-07T14:00:00Z");
+  date = new Date('2023-09-07T14:00:00Z');
   bpm = 100;
   vo2 = 100;
   generateData() {
@@ -33,6 +33,8 @@ export class ChartUtilsService {
       date: this.date.getTime(),
       bpm: this.bpm,
       vo2: this.vo2,
+      bpmReal: this.bpm,
+      vo2Real: this.vo2,
     };
   }
 
