@@ -3,6 +3,7 @@ import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
 import * as am5xy from '@amcharts/amcharts5/xy';
 import { SmoothedXYLineSeries } from '@amcharts/amcharts5/xy';
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import { Session, Training } from '../models';
 import { ChartUtilsService } from './chart-utils.service';
 
@@ -13,13 +14,14 @@ export enum ChartModes {
   Readonly = 'readonly',
 }
 
-const _MIN_RANGE_WIDTH = 1;
+const _MIN_RANGE_WIDTH = 5;
 
 @Injectable()
 export class AmChartService {
   private root!: am5.Root;
   private chart!: am5xy.XYChart;
   private cursor!: am5xy.XYCursor;
+  private seriesCursor!: am5xy.XYCursor;
   private xAxis!: am5xy.DateAxis<am5xy.AxisRendererX>;
   private yAxis!: am5xy.DateAxis<am5xy.AxisRendererY>;
   private BPMserie!: SmoothedXYLineSeries;
@@ -31,7 +33,10 @@ export class AmChartService {
 
   private mode: ChartModes = ChartModes.Readonly;
 
-  training!: Training;
+  protected training!: Training;
+
+  public editSession = new Subject<string>();
+  public newSession = new Subject<Partial<Session>>();
 
   constructor(private chartUtilsService: ChartUtilsService) {}
 
@@ -49,7 +54,7 @@ export class AmChartService {
     );
 
     this.createAxes();
-    // this.addScrollbar();
+    // this.addScrollbar(); // Enabling this => BOOM!!!
 
     this.addSeries();
 
@@ -86,13 +91,19 @@ export class AmChartService {
     this.addVO2Serie();
     this.chart.appear(1000, 100);
 
-    this.cursor = this.chart.set(
+    if (this.mode !== ChartModes.EditRange) {
+      this.addSeriesCursor();
+    }
+  }
+
+  addSeriesCursor() {
+    this.seriesCursor = this.chart.set(
       'cursor',
       am5xy.XYCursor.new(this.root, {
         behavior: 'none',
       })
     );
-    this.cursor.lineY.set('visible', false);
+    this.seriesCursor.lineY.set('visible', false);
   }
 
   addBPMSerie() {
@@ -345,6 +356,18 @@ export class AmChartService {
     // }
   }
 
+  newSessionFromCenterRange(centerRange: number) {
+    const centerRangePx = this.getPositionFromValue(centerRange);
+    const startedAt = this.getValueFromPx(centerRangePx - 35);
+    const stoppedAt = this.getValueFromPx(centerRangePx + 35);
+    // console.log('startedAt', startedAt, 'stoppedAt', stoppedAt);
+    const session: Partial<Session> = {
+      startedAt: new Date(startedAt).toISOString(),
+      stoppedAt: new Date(stoppedAt).toISOString(),
+    };
+    return session;
+  }
+
   rangeToPx(from: number, to: number) {
     const rangePx =
       this.getPositionFromValue(to) - this.getPositionFromValue(from);
@@ -357,13 +380,11 @@ export class AmChartService {
       ...this.getAllRanges(), // values of start and end of sessions
       this.xAxis.positionToValue(1), // stop training value
     ];
-    console.log('allRanges', allRanges);
+    // console.log('allRanges', allRanges);
 
     // create button for each range
     allRanges.forEach((value, index) => {
       if (index === allRanges.length - 1) return;
-
-      if (this.rangeToPx(allRanges[index], allRanges[index + 1]) < 50) return;
 
       // calculate center of range
       const centerRange =
@@ -375,14 +396,18 @@ export class AmChartService {
       buttonRange.set('value', centerRange);
 
       // check if range is in a session to show "edit session" button or in a gap to show "new session" button
-      const inSession = this.inSession(centerRange);
+      const sessionId = this.getSessionId(centerRange);
       let button: am5.Button;
-      if (inSession) {
+      if (sessionId) {
         // show "edit button"
-        button = this.createEditSessionButton(index);
+        button = this.createEditSessionButton(sessionId);
       } else {
         // show "new button"
-        button = this.createNewSessionButton(index);
+        button = this.createNewSessionButton(centerRange);
+
+        // button not shown if range is too small
+        // TODO define min range by seconds insteadof pixels
+        if (this.rangeToPx(allRanges[index], allRanges[index + 1]) < 80) return;
       }
 
       // add button to range
@@ -392,7 +417,36 @@ export class AmChartService {
           sprite: button,
         })
       );
+
+      button.events.on('click', () => {
+        // console.log('CLICKED', button.get('id'));
+        if (sessionId) {
+          // EDIT SESSION
+          const sessionId = button.get('userData')['sessionId'];
+          if (!sessionId) return;
+          this.editSession.next(sessionId);
+        } else {
+          // NEW SESSION
+          const newCenterRange = button.get('userData')['centerRange'];
+          this.newSession.next(this.newSessionFromCenterRange(newCenterRange));
+        }
+      });
     });
+  }
+
+  // se range è all'interno di una sessione, ne ritorna l'id altrimenti null
+  getSessionId(centerRange: number): string | null {
+    if (!this.training?.sessions) return null;
+    for (const session of this.training?.sessions) {
+      const startedAt = new Date(session.startedAt).getTime();
+      const stoppedAt = new Date(session.stoppedAt).getTime();
+
+      if (centerRange >= startedAt && centerRange <= stoppedAt) {
+        return session.id; // centerRange è all'interno di una sessione
+      }
+    }
+
+    return null; // centerRange non è all'interno di nessuna sessione
   }
 
   // check se range è all'interno di una sessione
@@ -411,7 +465,7 @@ export class AmChartService {
   }
 
   // create "edit session" button
-  createEditSessionButton(id: number) {
+  createEditSessionButton(sessionId: string) {
     let button: am5.Button;
     button = am5.Button.new(this.root, {
       label: am5.Label.new(this.root, {
@@ -426,7 +480,10 @@ export class AmChartService {
       }),
       centerX: am5.percent(50),
       centerY: am5.percent(110),
-      id: 'edit-session-' + id,
+      // id: 'edit-' + sessionId,
+      userData: {
+        sessionId,
+      },
     });
 
     button.get('background')?.setAll({
@@ -455,9 +512,8 @@ export class AmChartService {
   }
 
   // create "new session" button
-  createNewSessionButton(id: number) {
+  createNewSessionButton(centerRange: number) {
     let button: am5.Button;
-
     button = am5.Button.new(this.root, {
       label: am5.Label.new(this.root, {
         text: 'NEW',
@@ -470,7 +526,10 @@ export class AmChartService {
       }),
       centerX: am5.percent(50),
       centerY: am5.percent(110),
-      id: 'new-session-' + id,
+      // id: 'new-' + centerRange,
+      userData: {
+        centerRange,
+      },
     });
 
     button.get('background')?.setAll({
@@ -792,16 +851,19 @@ export class AmChartService {
   }
 
   getPositionFromRange(range: am5.DataItem<am5xy.IDateAxisDataItem>) {
-    const pxTo = this.xAxis.valueToPosition(range.get('value') || 0);
-    let position = this.xAxis.toAxisPosition(pxTo);
-    position = this.chart.plotContainer.width() * pxTo;
-    return position;
+    return this.getPositionFromValue(range.get('value') || 0);
   }
 
   getPositionFromValue(value: number) {
     const pxTo = this.xAxis.valueToPosition(value);
-    let position = this.xAxis.toAxisPosition(pxTo);
-    position = this.chart.plotContainer.width() * pxTo;
+    let position = this.chart.plotContainer.width() * pxTo;
     return Math.floor(position);
+  }
+
+  getValueFromPx(px: number) {
+    var position = this.xAxis.toAxisPosition(
+      px / this.chart.plotContainer.width()
+    );
+    return Math.floor(this.xAxis.positionToValue(position));
   }
 }
