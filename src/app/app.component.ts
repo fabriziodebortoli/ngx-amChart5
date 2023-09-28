@@ -78,7 +78,11 @@ export class AppComponent {
     this.chartService.setEditSessionMode();
   }
 
-  addNewSessionButtons() {
-    this.chartService.addNewSessionButtons();
+  addButtons() {
+    this.chartService.addButtons();
+  }
+
+  refreshChart() {
+    return this.chartService.refreshChart();
   }
 }

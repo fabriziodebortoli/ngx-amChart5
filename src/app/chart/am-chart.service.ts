@@ -259,20 +259,16 @@ export class AmChartService {
     console.log('ORIG sessions', sessions);
 
     sessions?.forEach((session) => {
-      this.addSession(
-        session,
-        new Date(session.startedAt),
-        new Date(session.stoppedAt)
-      );
+      this.addSession(session);
     });
 
     this.maxNextRangePosition = this.chart.plotContainer.width();
     this.maxPrevRangePosition = 0;
   }
 
-  addSession(session: Session, from: Date, to: Date) {
-    const fromTime = new Date(from).getTime();
-    const toTime = new Date(to).getTime();
+  addSession(session: Session) {
+    const fromTime = new Date(session.startedAt).getTime();
+    const toTime = new Date(session.stoppedAt).getTime();
 
     // Linee range sessione
     let rangeFrom: am5.DataItem<am5xy.IDateAxisDataItem>;
@@ -310,107 +306,101 @@ export class AmChartService {
 
     this.manageResizeButtons(rangeFrom, rangeTo);
 
-    if (this.mode === ChartModes.EditSession) {
-      setTimeout(
-        () => this.addEditSessionButton(session, rangeFrom, rangeTo),
-        100
-      );
-    }
+    // if (this.mode === ChartModes.EditSession) {
+    //   setTimeout(
+    //     () => this.addEditSessionButton(session, rangeFrom, rangeTo),
+    //     100
+    //   );
+    // }
   }
 
-  addNewSessionButtons() {
-    // to remember: in 'view' mode there will be also the edit button ranges at the center of every session
-    const rangesValues = [
-      this.xAxis.positionToValue(0),
-      ...this.getAllRanges(),
-      this.xAxis.positionToValue(100),
+  addButtons() {
+    const allRanges = [
+      this.xAxis.positionToValue(0), // start training value
+      ...this.getAllRanges(), // values of start and end of sessions
+      this.xAxis.positionToValue(1), // stop training value
     ];
+    console.log('allRanges', allRanges);
 
-    // console.log('rangesPx', rangesPx);
-    rangesValues.forEach((value, index) => {
-      if (index === rangesValues.length - 1) return;
+    // create button for each range
+    allRanges.forEach((value, index) => {
+      if (index === allRanges.length - 1) return;
 
-      const nx =
-        (rangesValues[index + 1] - rangesValues[index]) / 2 +
-        rangesValues[index];
+      // calculate center of range
+      const centerRange =
+        (allRanges[index + 1] - allRanges[index]) / 2 + allRanges[index];
 
-      let rangeNewSessionHere: am5.DataItem<am5xy.IDateAxisDataItem>;
-      rangeNewSessionHere = this.xAxis.createAxisRange(
-        this.xAxis.makeDataItem({})
-      );
-      rangeNewSessionHere.set('value', nx);
+      // create range in centerRange
+      let buttonRange: am5.DataItem<am5xy.IDateAxisDataItem>;
+      buttonRange = this.xAxis.createAxisRange(this.xAxis.makeDataItem({}));
+      buttonRange.set('value', centerRange);
 
-      // rangeNewSessionHere.set('value', 1694097500000);
+      // check if range is in a session to show "edit session" button or in a gap to show "new session" button
+      const inSession = this.inSession(centerRange);
+      let button: am5.Button;
+      if (inSession) {
+        // show "edit button"
+        button = this.createEditSessionButton(index);
+      } else {
+        // show "new button"
+        button = this.createNewSessionButton(index);
+      }
 
-      rangeNewSessionHere.get('grid')?.setAll({
-        strokeOpacity: 1,
-        stroke: am5.color(0x000000),
-        layer: 2,
-      });
-
-      // create edit button on centerRange
-      let newButton: am5.Button;
-      newButton = am5.Button.new(this.root, {
-        label: am5.Label.new(this.root, {
-          text: 'NEW',
-        }),
-        centerX: am5.percent(50),
-        centerY: am5.percent(110),
-        id: 'newButton_' + index,
-      });
-
-      rangeNewSessionHere.set(
+      // add button to range
+      buttonRange.set(
         'bullet',
         am5xy.AxisBullet.new(this.root, {
-          location: 0,
-          sprite: newButton,
+          sprite: button,
         })
       );
     });
   }
 
-  addEditSessionButton(
-    session: Session,
-    from: am5.DataItem<am5xy.IDateAxisDataItem>,
-    to: am5.DataItem<am5xy.IDateAxisDataItem>
-  ) {
-    const rangeFrom = from.get('value') || 0;
-    const rangeTo = to.get('value') || 0;
-    const centerRange = rangeFrom + (rangeTo - rangeFrom) / 2;
+  // check se range è all'interno di una sessione
+  inSession(centerRange: number): boolean {
+    if (!this.training?.sessions) return false;
+    for (const session of this.training?.sessions) {
+      const startedAt = new Date(session.startedAt).getTime();
+      const stoppedAt = new Date(session.stoppedAt).getTime();
 
-    // create range in centerRange
-    let rangeCenter: am5.DataItem<am5xy.IDateAxisDataItem>;
-    rangeCenter = this.xAxis.createAxisRange(this.xAxis.makeDataItem({}));
-    rangeCenter.set('value', centerRange);
+      if (centerRange >= startedAt && centerRange <= stoppedAt) {
+        return true; // centerRange è all'interno di una sessione
+      }
+    }
 
-    // create edit button on centerRange
-    let editButton: am5.Button;
-    editButton = am5.Button.new(this.root, {
+    return false; // centerRange non è all'interno di nessuna sessione
+  }
+
+  // create "edit session" button
+  createEditSessionButton(id: number) {
+    return am5.Button.new(this.root, {
       label: am5.Label.new(this.root, {
         text: 'EDIT',
+        fontSize: 12,
+        fontWeight: '600',
       }),
       centerX: am5.percent(50),
       centerY: am5.percent(110),
-      id: 'editButton_' + session.id,
+      id: 'edit-session-' + id,
+    });
+  }
+
+  // create "new session" button
+  createNewSessionButton(id: number) {
+    let button: am5.Button;
+
+    button = am5.Button.new(this.root, {
+      label: am5.Label.new(this.root, {
+        text: 'NEW',
+        fontSize: 12,
+        fontWeight: '600',
+      }),
+      centerX: am5.percent(50),
+      centerY: am5.percent(110),
+      id: 'new-session-' + id,
     });
 
-    rangeCenter.set(
-      'bullet',
-      am5xy.AxisBullet.new(this.root, {
-        location: 0,
-        sprite: editButton,
-      })
-    );
-
-    // let button = this.chart.plotContainer.children.push(
-    //   am5.Button.new(this.root, {
-    //     dx: this.getPositionFromValue(centerRange) - 10,
-    //     dy: 10,
-    //     label: am5.Label.new(this.root, {
-    //       text: 'Add data',
-    //     }),
-    //   })
-    // );
+    return button;
   }
 
   // Crea e gestisce i resize buttons
@@ -649,9 +639,13 @@ export class AmChartService {
     console.log('drawRanges');
   }
 
-  refreshRanges() {
+  refreshChart() {
     this.clearRanges();
     this.setTrainingData(this.training);
+
+    if (this.mode === ChartModes.EditSession) {
+      this.addButtons();
+    }
   }
 
   setEditRangeMode() {
@@ -669,14 +663,14 @@ export class AmChartService {
   setMode(mode: ChartModes) {
     this.saveRanges();
     this.mode = mode;
-    this.refreshRanges();
+    this.refreshChart();
   }
 
   saveRanges() {
     const ranges = this.getAllRanges();
 
     let sessions = this.training?.sessions;
-    console.log('OLD sessions', sessions);
+    // console.log('OLD sessions', sessions);
 
     let idx = 0;
     sessions?.forEach((session, index) => {
@@ -684,13 +678,12 @@ export class AmChartService {
         ranges[idx],
         ranges[idx + 1]
       );
-
       session.startedAt = new Date(ranges[idx]).toISOString();
       idx++;
       session.stoppedAt = new Date(ranges[idx]).toISOString();
       idx++;
     });
-    console.log('NEW sessions', sessions);
+    // console.log('SAVED sessions', sessions);
   }
 
   getDurationFromRange(rangeFrom: number, rangeTo: number) {
