@@ -90,10 +90,6 @@ export class AmChartService {
     this.addBPMSerie();
     this.addVO2Serie();
     this.chart.appear(1000, 100);
-
-    if (this.mode !== ChartModes.EditRange) {
-      this.addSeriesCursor();
-    }
   }
 
   addSeriesCursor() {
@@ -306,6 +302,10 @@ export class AmChartService {
 
     this.maxNextRangePosition = this.chart.plotContainer.width();
     this.maxPrevRangePosition = 0;
+
+    // if (this.mode !== ChartModes.EditRange) {
+      this.addSeriesCursor();
+    // }
   }
 
   addSession(session: Session) {
@@ -780,6 +780,7 @@ export class AmChartService {
 
   clearRanges() {
     this.xAxis.axisRanges.clear();
+    this.seriesCursor?.dispose();
   }
 
   drawRanges() {
@@ -793,6 +794,8 @@ export class AmChartService {
     if (this.mode === ChartModes.EditSession) {
       this.addButtons();
     }
+
+
   }
 
   setEditRangeMode() {
