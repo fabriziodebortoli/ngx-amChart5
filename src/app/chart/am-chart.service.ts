@@ -345,6 +345,12 @@ export class AmChartService {
     // }
   }
 
+  rangeToPx(from: number, to: number) {
+    const rangePx =
+      this.getPositionFromValue(to) - this.getPositionFromValue(from);
+    return rangePx;
+  }
+
   addButtons() {
     const allRanges = [
       this.xAxis.positionToValue(0), // start training value
@@ -356,6 +362,8 @@ export class AmChartService {
     // create button for each range
     allRanges.forEach((value, index) => {
       if (index === allRanges.length - 1) return;
+
+      if (this.rangeToPx(allRanges[index], allRanges[index + 1]) < 50) return;
 
       // calculate center of range
       const centerRange =
@@ -422,20 +430,26 @@ export class AmChartService {
     });
 
     button.get('background')?.setAll({
-      fill: am5.color("#fff"),
+      fill: am5.color('#fff'),
       fillOpacity: 0.7,
       stroke: this.buttonColor,
     });
 
-    button.get("background")?.states.create("hover", {}).setAll({
-      fill: am5.color("#eee"),
-      fillOpacity: 1
-    });
+    button
+      .get('background')
+      ?.states.create('hover', {})
+      .setAll({
+        fill: am5.color('#eee'),
+        fillOpacity: 1,
+      });
 
-    button.get("background")?.states.create("down", {}).setAll({
-      fill: am5.color("#ccc"),
-      fillOpacity: 0.5
-    });
+    button
+      .get('background')
+      ?.states.create('down', {})
+      .setAll({
+        fill: am5.color('#ccc'),
+        fillOpacity: 0.5,
+      });
 
     return button;
   }
@@ -464,14 +478,14 @@ export class AmChartService {
       fillOpacity: 0.7,
     });
 
-    button.get("background")?.states.create("hover", {}).setAll({
+    button.get('background')?.states.create('hover', {}).setAll({
       fill: this.buttonColor,
-      fillOpacity: 1
+      fillOpacity: 1,
     });
 
-    button.get("background")?.states.create("down", {}).setAll({
+    button.get('background')?.states.create('down', {}).setAll({
       fill: this.buttonColor,
-      fillOpacity: 0.5
+      fillOpacity: 0.5,
     });
 
     return button;
